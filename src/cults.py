@@ -5,29 +5,6 @@ import time
 import subprocess
 
 
-test = """
-import sys
-import os
-import time
-import math
-
-
-def func1(x, y):
-    return x * y
-
-def func2(str1, str2):
-    str1 = 'replaced'
-    print(str1 + ' ' + str2)
-
-    str3 = "this is a part of the function too"
-
-def func_3():
-    a = math.cos(1)
-    b = math.sin(1)
-    print(a * a + b * b)
-    return
-"""
-
 def parseFunctions(code: str) -> list:
     functions = []
     l = len(code)
@@ -103,9 +80,21 @@ def main():
         print("Usage Error: cults [filename] ...args...\nType cults -help for info about usage")
         sys.exit(0)
     path = sys.argv[1]
+    source = None
+    with open(path) as sourceFile:
+        if sourceFile == None:
+            print("Error: File specifide does not exist\ncults [filename] ...args...\nType cults -help for info about usage")
+            sys.exit(0)
+        lines = []
+        for line in sourceFile:
+            if len(lines) > 30000:
+                print("Error: Source file excedes 30000 lines. Consider refactoring your code into multiple files")
+                sys.exit(0)
+            lines.append(line)
+        source = ''.join(lines)
     
     if "-f" in sys.argv:
-        functional(test)
+        functional(source)
 
 
 if __name__ == "__main__":
