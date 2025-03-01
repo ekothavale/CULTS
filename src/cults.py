@@ -1,8 +1,9 @@
+# imports
 import sys
 import re
 import os
 
-
+# finds names of all python functions in the desired file and stores in list
 def parseFunctions(code: str) -> list:
     functions = []
     l = len(code)
@@ -18,6 +19,8 @@ def parseFunctions(code: str) -> list:
         functions.append(code[index: i])
     return functions
 
+# takes a list of function names and converts them into their .cults equivalents, then patches them with
+# their respective file sourcecode
 def pairFunctionNames(functions: list) -> dict:
     fileNameDict = {}
     functionNameList = []
@@ -27,6 +30,7 @@ def pairFunctionNames(functions: list) -> dict:
         functionNameList.append(fName[0])
     return fileNameDict
 
+# filters out filename, source code pairs generated above that don't have an existing .cults file that matches
 def getFunctionArgumentFilenames(fileNames: dict) -> dict:
     out = {}
     for dirPath, directories, files in os.walk("tests/", onerror=lambda: print("CULTS assumes tests are in a /tests directory")):
@@ -35,6 +39,8 @@ def getFunctionArgumentFilenames(fileNames: dict) -> dict:
                 out[file] = fileNames[file]
     return out
 
+# formatted arguments: "x, y" -> "sys.argv[1], sys.argv[2]"
+# no longer in use
 def assembleArgs(args: str) -> str:
     count = len(args.split(","))
     if count == 0:
@@ -45,7 +51,7 @@ def assembleArgs(args: str) -> str:
         pieces.append(f", sys.argv[{i+2}]")
     return ''.join(pieces), '{' + ''.join(pieces) + '}'
 
-
+# takes source code as input and tests each function with a corresponding .cults file
 def functional(code: str):
     functions = parseFunctions(code)
     filenameDict = pairFunctionNames(functions)
@@ -101,22 +107,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-def CULTSSANDBOX():
-    print(f(sys.argv[1], sys.argv[2]))
-
-
-# TODO:
-# New plan:
-#   Opens sandbox once per function
-#   creates a series of calls in CULTSSANDBOX for each set of arguments
-#   Ex: generates
-#   def CULTSSANDBOX():
-#       print(func1(1,4))
-#       print(func1(3,3333))
-#       print(func1(5,-1))
-#       print(func1(6,0))
-#       print(func1(19,2))
-#       print(func1(12,3))
-#       ...
