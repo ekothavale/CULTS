@@ -1,8 +1,6 @@
 import sys
 import re
 import os
-import time
-import subprocess
 
 
 def parseFunctions(code: str) -> list:
@@ -21,18 +19,20 @@ def parseFunctions(code: str) -> list:
     return functions
 
 def pairFunctionNames(functions: list) -> dict:
-    out = {}
+    fileNameDict = {}
+    functionNameList = []
     for f in functions:
         fName = re.findall(r"(?<=def )[A-z|_][A-z0-9|_]*", f)
-        out[fName[0]] = f
-    return out
+        fileNameDict[fName[0] + '.cults'] = f
+        functionNameList.append(fName[0])
+    return fileNameDict
 
-def getFunctionArgumentFilenames(fileNames: list) -> list:
-    out = []
-    for dirPath, directories, files in os.walk("tests/", onerror=lambda x: print("CULTS assumes tests are in a /tests directory")):
+def getFunctionArgumentFilenames(fileNames: dict) -> dict:
+    out = {}
+    for dirPath, directories, files in os.walk("tests/", onerror=lambda: print("CULTS assumes tests are in a /tests directory")):
         for file in files:
-            if file.endswith(".cults") and file[:-6] in fileNames:
-                out.append(file)
+            if file in fileNames:
+                out[file] = fileNames[file]
     return out
 
 def assembleArgs(args: str) -> str:
@@ -48,24 +48,26 @@ def assembleArgs(args: str) -> str:
 
 def functional(code: str):
     functions = parseFunctions(code)
-    funcDict = pairFunctionNames(functions)
-    funcNames = list(funcDict.keys())
+    filenameDict = pairFunctionNames(functions)
     imports = re.findall(r'(?<=import )\S+', code)
-    functionArgumentFilenames = getFunctionArgumentFilenames(funcNames)
-    print(functionArgumentFilenames)
-    for i in range(len(functionArgumentFilenames)):
+    functionArgumentFilenamesDict = getFunctionArgumentFilenames(filenameDict)
+    fileNames = functionArgumentFilenamesDict.keys()
+    print(filenameDict)
+    print(functionArgumentFilenamesDict)
+    print(fileNames)
+
+    for fileName in fileNames:
         sandbox = open("cultsSandbox.py", "w")
-        argFile = open(f"tests/{functionArgumentFilenames[i]}", "r")
-        strArgs, rawArgs = assembleArgs(argFile.readline())
+        argFile = open(f"tests/{fileName}", "r")
         argFile.seek(0) # reset file pointer to start of file
         for im in imports:
             sandbox.write(f"import {im}\n")
         sandbox.write("import sys\n\n")
-        sandbox.write(functions[i])
+        sandbox.write(functionArgumentFilenamesDict[fileName])
         sandbox.write(f"def CULTSSANDBOX():\n")
         for line in argFile:
             line = line.strip()
-            sandbox.write(f"\tprint(\"\033[97m{funcNames[i]}({line}):\" + '\033[92m', {funcNames[i]}({line}))\n")
+            sandbox.write(f"\tprint(\"\033[97m{fileName[:-6]}({line}):\" + '\033[92m', {fileName[:-6]}({line}))\n")
         sandbox.write("if __name__ == \"__main__\":\n\tCULTSSANDBOX()")
         sandbox.close()
         argFile.close()
