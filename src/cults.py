@@ -58,6 +58,17 @@ def getFunctionArgumentFilenames(fileNames: list) -> list:
                 out.append(file)
     return out
 
+def assembleArgs(args: str) -> str:
+    count = len(args.split(","))
+    if count == 0:
+        print(".cults file formatted incorrectly")
+        sys.exit(0)
+    pieces = list("sys.argv[1]")
+    for i in range(count - 1):
+        pieces.append(f", sys.argv[{i+2}]")
+    return ''.join(pieces), '{' + ''.join(pieces) + '}'
+
+
 def functional(code: str):
     functions = parseFunctions(code)
     funcDict = pairFunctionNames(functions)
@@ -66,18 +77,24 @@ def functional(code: str):
     functionArgumentFilenames = getFunctionArgumentFilenames(funcNames)
     print(functionArgumentFilenames)
     for i in range(len(functionArgumentFilenames)):
+        sandbox = open("cultsSandbox.py", "w")
         argFile = open(f"tests/{functionArgumentFilenames[i]}", "r")
+        strArgs, rawArgs = assembleArgs(argFile.readline())
+        argFile.seek(0) # reset file pointer to start of file
+        for im in imports:
+            sandbox.write(f"import {im}\n")
+        sandbox.write("import sys\n\n")
+        sandbox.write(functions[i])
+        sandbox.write(f"def CULTSSANDBOX():\n")
         for line in argFile:
-            line = line.rstrip("\n")
-            sandbox = open("cultsSandbox.py", "w")
-            for im in imports:
-                sandbox.write(f"import {im}\n")
-            sandbox.write(functions[i])
-            sandbox.write(f"\nprint(f\"{funcNames[i]}({line}):\", {funcNames[i]}({line}))\n")
-            subprocess.run(["python3", "cultsSandbox.py"])
-    sandbox.close()
-    argFile.close()
-    #subprocess.run(["rm", "cultsSandbox.py"])
+            line = line.strip()
+            sandbox.write(f"\tprint(\"\033[97m{funcNames[i]}({line}):\" + '\033[92m', {funcNames[i]}({line}))\n")
+        sandbox.write("if __name__ == \"__main__\":\n\tCULTSSANDBOX()")
+        sandbox.close()
+        argFile.close()
+        os.system("python3 cultsSandbox.py")
+    
+    os.system("rm cultsSandbox.py")
         
     
     
@@ -93,3 +110,22 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def CULTSSANDBOX():
+    print(f(sys.argv[1], sys.argv[2]))
+
+
+# TODO:
+# New plan:
+#   Opens sandbox once per function
+#   creates a series of calls in CULTSSANDBOX for each set of arguments
+#   Ex: generates
+#   def CULTSSANDBOX():
+#       print(func1(1,4))
+#       print(func1(3,3333))
+#       print(func1(5,-1))
+#       print(func1(6,0))
+#       print(func1(19,2))
+#       print(func1(12,3))
+#       ...
