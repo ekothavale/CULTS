@@ -3,11 +3,21 @@ import sys
 import re
 import os
 
+# user variables
+LINELIMIT = 15000 # maximum number of lines in source file
+
+# source code specific items
+# python
+EXTENSION = ".py"
+FUNCTIONDEFINITION = "def "
+IMPORTING = "import "
+PROGRAMEXECUTION = "python3"
+
 # finds names of all python functions in the desired file and stores in list
 def parseFunctions(code: str) -> list:
     functions = []
     l = len(code)
-    indices = [m.start() for m in re.finditer('def', code)]
+    indices = [m.start() for m in re.finditer(FUNCTIONDEFINITION, code)]
     for index in indices:
         i = index
         while i < l:
@@ -19,13 +29,13 @@ def parseFunctions(code: str) -> list:
         functions.append(code[index: i])
     return functions
 
-# takes a list of function names and converts them into their .cults equivalents, then patches them with
+# takes a list of function names and converts them into their .cults equivalents, then matches them with
 # their respective file sourcecode
 def pairFunctionNames(functions: list) -> dict:
     fileNameDict = {}
     functionNameList = []
     for f in functions:
-        fName = re.findall(r"(?<=def )[A-z|_][A-z0-9|_]*", f)
+        fName = re.findall(rf"(?<={FUNCTIONDEFINITION})[A-z|_][A-z0-9|_]*", f)
         fileNameDict[fName[0] + '.cults'] = f
         functionNameList.append(fName[0])
     return fileNameDict
@@ -39,17 +49,17 @@ def getFunctionArgumentFilenames(fileNames: dict) -> dict:
                 out[file] = fileNames[file]
     return out
 
-# formatted arguments: "x, y" -> "sys.argv[1], sys.argv[2]"
-# no longer in use
-def assembleArgs(args: str) -> str:
-    count = len(args.split(","))
-    if count == 0:
-        print(".cults file formatted incorrectly")
-        sys.exit(0)
-    pieces = list("sys.argv[1]")
-    for i in range(count - 1):
-        pieces.append(f", sys.argv[{i+2}]")
-    return ''.join(pieces), '{' + ''.join(pieces) + '}'
+def pythonTest(fileName, sandbox, argFile, imports, functionArgumentFilenamesDict):
+    for im in imports:
+        sandbox.write(f"import {im}\n")
+    sandbox.write(functionArgumentFilenamesDict[fileName])
+    sandbox.write("def CULTSSANDBOX():\n")
+    for line in argFile:
+        line = line.strip()
+        sandbox.write(f"\tprint(\"\033[97m{fileName[:-6]}({line}):\" + '\033[92m', {fileName[:-6]}({line}))\n")
+    sandbox.write("if __name__ == \"__main__\":\n\tCULTSSANDBOX()")
+    sandbox.close()
+    argFile.close()
 
 # takes source code as input and tests each function with a corresponding .cults file
 def functional(code: str):
@@ -58,28 +68,15 @@ def functional(code: str):
     imports = re.findall(r'(?<=import )\S+', code)
     functionArgumentFilenamesDict = getFunctionArgumentFilenames(filenameDict)
     fileNames = functionArgumentFilenamesDict.keys()
-    print(filenameDict)
-    print(functionArgumentFilenamesDict)
-    print(fileNames)
 
     for fileName in fileNames:
-        sandbox = open("cultsSandbox.py", "w")
+        sandbox = open(f"cultsSandbox{EXTENSION}", "w")
         argFile = open(f"tests/{fileName}", "r")
         argFile.seek(0) # reset file pointer to start of file
-        for im in imports:
-            sandbox.write(f"import {im}\n")
-        sandbox.write("import sys\n\n")
-        sandbox.write(functionArgumentFilenamesDict[fileName])
-        sandbox.write(f"def CULTSSANDBOX():\n")
-        for line in argFile:
-            line = line.strip()
-            sandbox.write(f"\tprint(\"\033[97m{fileName[:-6]}({line}):\" + '\033[92m', {fileName[:-6]}({line}))\n")
-        sandbox.write("if __name__ == \"__main__\":\n\tCULTSSANDBOX()")
-        sandbox.close()
-        argFile.close()
-        os.system("python3 cultsSandbox.py")
+        pythonTest(fileName, sandbox, argFile, imports, functionArgumentFilenamesDict)
+        os.system(f"{PROGRAMEXECUTION} cultsSandbox{EXTENSION}")
     
-    os.system("rm cultsSandbox.py")
+    os.system(f"rm cultsSandbox{EXTENSION}")
         
     
     
@@ -89,14 +86,15 @@ def main():
         sys.exit(0)
     path = sys.argv[1]
     source = None
+    # reads in source code from file specified in command line
     with open(path) as sourceFile:
         if sourceFile == None:
             print("Error: File specifide does not exist\ncults [filename] ...args...\nType cults -help for info about usage")
             sys.exit(0)
         lines = []
         for line in sourceFile:
-            if len(lines) > 30000:
-                print("Error: Source file excedes 30000 lines. Consider refactoring your code into multiple files")
+            if len(lines) > LINELIMIT:
+                print(f"Error: Source file excedes {LINELIMIT} lines. Consider refactoring your code into multiple files")
                 sys.exit(0)
             lines.append(line)
         source = ''.join(lines)
